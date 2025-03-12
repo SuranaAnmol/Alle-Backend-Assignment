@@ -1,0 +1,17 @@
+# Ignore Go binaries
+*.exe
+*.out
+*.test
+
+# Ignore dependency files
+go.sum
+go.mod
+
+# Ignore IDE/editor files
+.vscode/
+.idea/
+*.log
+*.swp
+
+# Ignore environment files
+.env
