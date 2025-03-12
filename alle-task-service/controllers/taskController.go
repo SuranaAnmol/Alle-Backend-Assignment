@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/SuranaAnmol/Alle-Backend-Assignment-Go/config"
@@ -11,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var taskCollection *mongo.Collection
@@ -26,7 +28,7 @@ type Task struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Title       string             `bson:"title" json:"title"`
 	Description string             `bson:"description" json:"description"`
-	Completed   bool               `bson:"completed" json:"completed"`
+	Status      string             `bson:"status" json:"status"`
 }
 
 // Create a new task
@@ -51,31 +53,31 @@ func CreateTask(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Task created", "id": result.InsertedID})
 }
 
-// Fetch all tasks
-func GetTasks(c *gin.Context) {
-	var tasks []Task
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+// // Fetch all tasks
+// func GetTasks(c *gin.Context) {
+// 	var tasks []Task
+// 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+// 	defer cancel()
 
-	cursor, err := taskCollection.Find(ctx, bson.M{})
-	if err != nil {
-		log.Println("Find error:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tasks"})
-		return
-	}
-	defer cursor.Close(ctx)
+// 	cursor, err := taskCollection.Find(ctx, bson.M{})
+// 	if err != nil {
+// 		log.Println("Find error:", err)
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tasks"})
+// 		return
+// 	}
+// 	defer cursor.Close(ctx)
 
-	for cursor.Next(ctx) {
-		var task Task
-		if err := cursor.Decode(&task); err != nil {
-			log.Println("Decode error:", err)
-			continue
-		}
-		tasks = append(tasks, task)
-	}
+// 	for cursor.Next(ctx) {
+// 		var task Task
+// 		if err := cursor.Decode(&task); err != nil {
+// 			log.Println("Decode error:", err)
+// 			continue
+// 		}
+// 		tasks = append(tasks, task)
+// 	}
 
-	c.JSON(http.StatusOK, tasks)
-}
+// 	c.JSON(http.StatusOK, tasks)
+// }
 
 // Get task by ID
 func GetTaskByID(c *gin.Context) {
@@ -146,4 +148,58 @@ func DeleteTask(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Task deleted"})
+}
+
+// Fetch all tasks with pagination and filtering
+func GetTasks(c *gin.Context) {
+	var tasks []Task
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+
+	skip := (page - 1) * limit
+
+	// Filtering by status
+	status := c.Query("status")
+	filter := bson.M{}
+	if status != "" {
+		filter["status"] = status
+	}
+
+	// Fetch tasks from MongoDB with pagination and filtering
+	cursor, err := taskCollection.Find(ctx, filter, &options.FindOptions{
+		Skip:  &[]int64{int64(skip)}[0],
+		Limit: &[]int64{int64(limit)}[0],
+	})
+	if err != nil {
+		log.Println("Find error:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tasks"})
+		return
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var task Task
+		if err := cursor.Decode(&task); err != nil {
+			log.Println("Decode error:", err)
+			continue
+		}
+		tasks = append(tasks, task)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"page":  page,
+		"limit": limit,
+		"tasks": tasks,
+	})
 }

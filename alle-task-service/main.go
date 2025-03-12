@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 
-	"github.com/SuranaAnmol/Alle-Backend-Assignment-Go/config"
 	"github.com/SuranaAnmol/Alle-Backend-Assignment-Go/routes"
 	"github.com/gin-gonic/gin"
 )
@@ -12,7 +11,7 @@ func main() {
 	fmt.Println("🚀 Starting Task Management System...")
 
 	// Connect to MongoDB BEFORE doing anything else
-	config.ConnectDB()
+	// config.ConnectDB()
 
 	router := gin.Default()
 	routes.SetupRoutes(router)
